@@ -1,17 +1,19 @@
-# BlipAuth Smart Contract Setup & Deployment Guide
+# BlipAuth Smart Contract & IPFS Setup Guide
 
-This guide helps you deploy the BlipAuth smart contract using Hardhat, run it locally, and connect it to your React Native app.
+This guide helps you deploy the BlipAuth smart contract using Hardhat, run it locally, connect it to your React Native app, and use a local IPFS node to store media and post data.
 
 ---
 
 ## ✅ Overview
 
-1. Set up a Hardhat project
-2. Add the smart contract (`BlipAuth.sol`)
-3. Compile it
-4. Run a local blockchain
-5. Deploy the contract
-6. Copy the deployed address & ABI to your frontend
+1. Set up a Hardhat project  
+2. Add the smart contract (`BlipAuth.sol`)  
+3. Compile it  
+4. Run a local blockchain  
+5. Deploy the contract  
+6. Copy the deployed address & ABI to your frontend  
+7. Start a local IPFS node  
+8. Upload files via IPFS in your React Native app  
 
 ---
 
@@ -71,6 +73,7 @@ npx hardhat compile
 ```
 
 ABI is generated in:
+
 ```
 artifacts/contracts/BlipAuth.sol/BlipAuth.json
 ```
@@ -80,7 +83,7 @@ artifacts/contracts/BlipAuth.sol/BlipAuth.json
 ### ✅ 4. Start Local Blockchain
 
 ```bash
-npx hardhat node
+npx hardhat node --hostname 0.0.0.0
 ```
 
 This runs a local network at `http://127.0.0.1:8545`.
@@ -144,13 +147,110 @@ const contract = new Contract(CONTRACT_ADDRESS, AuthABI.abi, signer);
 
 ---
 
+## 🧠 BONUS: Local IPFS Setup for Media/Post Storage
+
+### ✅ 1. Install IPFS CLI
+
+From [https://docs.ipfs.tech/install/command-line/](https://docs.ipfs.tech/install/command-line/)
+
+Or use:
+
+```bash
+# macOS
+brew install ipfs
+
+# Ubuntu
+sudo apt install ipfs
+```
+
+---
+
+### ✅ 2. Initialize IPFS Node
+
+```bash
+ipfs init
+```
+
+---
+
+### ✅ 3. Start the IPFS Daemon
+
+```bash
+ipfs daemon
+```
+
+It will start at:
+
+```
+API:     http://127.0.0.1:5001
+Gateway: http://127.0.0.1:8080
+```
+
+---
+
+### ✅ 4. Upload a File (Test)
+
+```bash
+ipfs add hello.txt
+```
+
+Output:
+
+```
+added Qm... hello.txt
+```
+
+View it in browser:
+
+```
+http://127.0.0.1:8080/ipfs/Qm...
+https://ipfs.io/ipfs/Qm...
+```
+
+---
+
+### ✅ 5. List Local Files
+
+```bash
+ipfs pin ls
+```
+
+---
+
+### ✅ 6. Use in React Native App
+
+Configure `ipfs-http-client`:
+
+```ts
+import { create as ipfsHttpClient } from "ipfs-http-client";
+
+const ipfs = ipfsHttpClient({
+  host: "localhost",
+  port: 5001,
+  protocol: "http",
+});
+```
+
+Upload:
+
+```ts
+const result = await ipfs.add(fileBlob);
+console.log("CID:", result.path);
+```
+
+---
+
 ## 🎉 Done!
 
-You're now fully connected to your local blockchain.
+You're now fully connected to your:
+- ✅ Local blockchain for auth and smart contract storage
+- ✅ Local IPFS node for media and post data
 
-Next Ideas:
-- Add OTP support to contract
-- Store posts with IPFS CIDs
-- Deploy to Sepolia or a public testnet
+---
+
+### 🚀 Next Steps
+
+- Save and fetch post CIDs from chain
+- Create a decentralized feed UI
 
 ---
