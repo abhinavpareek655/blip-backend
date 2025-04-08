@@ -2,138 +2,132 @@
 pragma solidity ^0.8.18;
 
 contract BlipProfile {
+    struct Post {
+        string text;
+        uint256 timestamp;
+        bool isPublic;
+    }
+
     struct Profile {
         string name;
         string email;
-        string avatar;
         string bio;
         uint256 createdAt;
         address wallet;
-        address[] posts;
-        address[] blippers; // followers
-        address[] bliping;  // following
-        mapping(address => bool) isBlipping; // fast lookup for unfollow
+        Post[] posts;
+        mapping(address => bool) friends;
+        address[] friendList;
     }
 
     mapping(address => Profile) private profiles;
+    mapping(string => address) private emailToWallet;
 
-    event ProfileCreated(address indexed user, string name, string email);
-    event AvatarUpdated(address indexed user, string avatar);
-    event BioUpdated(address indexed user, string bio);
-    event Blipped(address indexed by, address indexed to);
-    event Unblipped(address indexed by, address indexed to);
-    event PostAdded(address indexed user, address postContract);
+    event FriendAdded(address indexed by, address indexed newFriend);
+    event FriendRemoved(address indexed by, address indexed exFriend);
+    event BioUpdated(address indexed user, string newBio);
     event NameUpdated(address indexed user, string newName);
-
-    modifier onlyUser() {
-        require(msg.sender == tx.origin, "No contracts allowed");
-        _;
-    }
+    event PostAdded(address indexed user, string text, bool isPublic);
 
     modifier profileExists(address user) {
         require(profiles[user].createdAt != 0, "Profile doesn't exist");
         _;
     }
 
-    function createProfile(
-        string memory name,
-        string memory email,
-        string memory avatar,
-        string memory bio
-    ) public onlyUser {
+    function createProfile(string memory name, string memory email, string memory bio) public {
         require(profiles[msg.sender].createdAt == 0, "Profile already exists");
 
-        address[] memory empty;
+        profiles[msg.sender].name = name;
+        profiles[msg.sender].email = email;
+        profiles[msg.sender].bio = bio;
+        profiles[msg.sender].wallet = msg.sender;
+        profiles[msg.sender].createdAt = block.timestamp;
 
-        Profile storage p = profiles[msg.sender];
-        p.name = name;
-        p.email = email;
-        p.avatar = avatar;
-        p.bio = bio;
-        p.wallet = msg.sender;
-        p.createdAt = block.timestamp;
-        p.posts = empty;
-        p.blippers = empty;
-        p.bliping = empty;
-
-        emit ProfileCreated(msg.sender, name, email);
+        emailToWallet[email] = msg.sender;
     }
 
-    function blip(address userToBlip) public profileExists(msg.sender) profileExists(userToBlip) {
-        require(userToBlip != msg.sender, "Cannot blip yourself");
-        require(!profiles[msg.sender].isBlipping[userToBlip], "Already blipping this user");
-
-        profiles[msg.sender].bliping.push(userToBlip);
-        profiles[userToBlip].blippers.push(msg.sender);
-        profiles[msg.sender].isBlipping[userToBlip] = true;
-
-        emit Blipped(msg.sender, userToBlip);
-    }
-
-    function unblip(address userToUnblip) public profileExists(msg.sender) profileExists(userToUnblip) {
-        require(profiles[msg.sender].isBlipping[userToUnblip], "Not blipping this user");
-
-        _removeFromArray(profiles[msg.sender].bliping, userToUnblip);
-        _removeFromArray(profiles[userToUnblip].blippers, msg.sender);
-        profiles[msg.sender].isBlipping[userToUnblip] = false;
-
-        emit Unblipped(msg.sender, userToUnblip);
-    }
-
-    function addPost(address postAddress) public profileExists(msg.sender) {
-        profiles[msg.sender].posts.push(postAddress);
-        emit PostAdded(msg.sender, postAddress);
-    }
-
-    function getProfile(address user) public view returns (
+    function getProfile(address user) public view profileExists(user) returns (
         string memory name,
         string memory email,
-        string memory avatar,
         string memory bio,
         address wallet,
         uint256 createdAt,
-        address[] memory posts,
-        address[] memory blippers,
-        address[] memory bliping
+        Post[] memory posts
     ) {
         Profile storage p = profiles[user];
-        return (p.name, p.email, p.avatar, p.bio, p.wallet, p.createdAt, p.posts, p.blippers, p.bliping);
+        return (p.name, p.email, p.bio, p.wallet, p.createdAt, p.posts);
     }
 
-    function _removeFromArray(address[] storage array, address addr) internal {
-        uint256 length = array.length;
-        for (uint256 i = 0; i < length; ++i) {
-            if (array[i] == addr) {
-                array[i] = array[length - 1];
-                array.pop();
-                break;
-            }
-        }
+    function getProfileByEmail(string memory email) public view returns (
+        string memory name,
+        string memory emailOut,
+        string memory bio,
+        address wallet,
+        uint256 createdAt,
+        Post[] memory posts
+    ) {
+        address user = emailToWallet[email];
+        require(user != address(0), "Email not registered");
+        Profile storage p = profiles[user];
+        return (p.name, p.email, p.bio, p.wallet, p.createdAt, p.posts);
     }
 
-    function isUserBlipping(address from, address to) public view returns (bool) {
-        return profiles[from].isBlipping[to];
+    function getWalletByEmail(string memory email) public view returns (address) {
+        return emailToWallet[email];
     }
 
-    function profileExistsFor(address user) public view returns (bool) {
-        return profiles[user].createdAt != 0;
+    function emailExists(string memory email) public view returns (bool) {
+        return emailToWallet[email] != address(0);
     }
 
-    function updateName(string memory newName) public {
-        require(profiles[msg.sender].createdAt != 0, "Profile doesn't exist");
+    function addFriend(address newFriend) public profileExists(msg.sender) profileExists(newFriend) {
+        require(!profiles[msg.sender].friends[newFriend], "Already friends");
+
+        profiles[msg.sender].friends[newFriend] = true;
+        profiles[msg.sender].friendList.push(newFriend);
+
+        profiles[newFriend].friends[msg.sender] = true;
+        profiles[newFriend].friendList.push(msg.sender);
+
+        emit FriendAdded(msg.sender, newFriend);
+    }
+
+    function removeFriend(address exFriend) public profileExists(msg.sender) profileExists(exFriend) {
+        require(profiles[msg.sender].friends[exFriend], "Not friends");
+
+        profiles[msg.sender].friends[exFriend] = false;
+        profiles[exFriend].friends[msg.sender] = false;
+
+        emit FriendRemoved(msg.sender, exFriend);
+    }
+
+    function getFriends(address user) public view profileExists(user) returns (address[] memory) {
+        return profiles[user].friendList;
+    }
+
+    function isFriend(address user1, address user2) public view returns (bool) {
+        return profiles[user1].friends[user2];
+    }
+
+    function updateBio(string memory newBio) public profileExists(msg.sender) {
+        profiles[msg.sender].bio = newBio;
+        emit BioUpdated(msg.sender, newBio);
+    }
+
+    function updateName(string memory newName) public profileExists(msg.sender) {
         profiles[msg.sender].name = newName;
         emit NameUpdated(msg.sender, newName);
     }
 
-    function updateAvatar(string memory newAvatar) public {
-        require(profiles[msg.sender].createdAt != 0, "Profile doesn't exist");
-        profiles[msg.sender].avatar = newAvatar;
-        emit AvatarUpdated(msg.sender, newAvatar);
+    function addPost(string memory text, bool isPublic) public profileExists(msg.sender) {
+        profiles[msg.sender].posts.push(Post({
+            text: text,
+            timestamp: block.timestamp,
+            isPublic: isPublic
+        }));
+        emit PostAdded(msg.sender, text, isPublic);
     }
 
-    function updateBio(string memory newBio) public {
-        require(profiles[msg.sender].createdAt != 0, "Profile doesn't exist");
-        profiles[msg.sender].bio = newBio;
-        emit BioUpdated(msg.sender, newBio);
+    function getPosts(address user) public view profileExists(user) returns (Post[] memory) {
+        return profiles[user].posts;
     }
 }

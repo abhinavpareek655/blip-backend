@@ -6,7 +6,6 @@ contract BlipPosts {
         uint256 id;
         address owner;
         string text;
-        string imageHash;
         bool isPublic;
         uint256 timestamp;
         uint256 likeCount;
@@ -26,14 +25,19 @@ contract BlipPosts {
     mapping(uint256 => address[]) public postLikes;
     mapping(uint256 => Comment[]) public postComments;
 
-    event PostCreated(uint256 indexed postId, address indexed owner, string text, string imageHash, bool isPublic);
+    event PostCreated(uint256 indexed postId, address indexed owner, string text, bool isPublic);
     event PostLiked(uint256 indexed postId, address indexed user);
     event CommentAdded(uint256 indexed postId, address indexed user, string comment);
     event PostShared(uint256 indexed postId, address indexed user);
 
-    // Create a post
-    function createPost(string memory text, string memory imageHash, bool isPublic) public {
-        require(bytes(text).length > 0 || bytes(imageHash).length > 0, "Post content required");
+    modifier validPost(uint256 postId) {
+        require(postId > 0 && postId <= postIdCounter, "Invalid post ID");
+        _;
+    }
+
+    // Create a text-only post
+    function createPost(string memory text, bool isPublic) public {
+        require(bytes(text).length > 0, "Post text required");
 
         uint256 postId = ++postIdCounter;
 
@@ -41,7 +45,6 @@ contract BlipPosts {
             id: postId,
             owner: msg.sender,
             text: text,
-            imageHash: imageHash,
             isPublic: isPublic,
             timestamp: block.timestamp,
             likeCount: 0,
@@ -50,28 +53,23 @@ contract BlipPosts {
 
         userPosts[msg.sender].push(postId);
 
-        emit PostCreated(postId, msg.sender, text, imageHash, isPublic);
+        emit PostCreated(postId, msg.sender, text, isPublic);
     }
 
-    // Like a post
-    function likePost(uint256 postId) public {
-        require(postId > 0 && postId <= postIdCounter, "Invalid post ID");
-
+    function likePost(uint256 postId) public validPost(postId) {
         address[] storage likes = postLikes[postId];
         for (uint i = 0; i < likes.length; i++) {
             require(likes[i] != msg.sender, "Already liked");
         }
 
         likes.push(msg.sender);
-        posts[postId].likeCount += 1;
+        posts[postId].likeCount++;
 
         emit PostLiked(postId, msg.sender);
     }
 
-    // Add comment
-    function commentOnPost(uint256 postId, string memory comment) public {
+    function commentOnPost(uint256 postId, string memory comment) public validPost(postId) {
         require(bytes(comment).length > 0, "Comment required");
-        require(postId > 0 && postId <= postIdCounter, "Invalid post ID");
 
         postComments[postId].push(Comment({
             commenter: msg.sender,
@@ -82,26 +80,20 @@ contract BlipPosts {
         emit CommentAdded(postId, msg.sender, comment);
     }
 
-    // Share post (increment counter only)
-    function sharePost(uint256 postId) public {
-        require(postId > 0 && postId <= postIdCounter, "Invalid post ID");
-        posts[postId].shareCount += 1;
-
+    function sharePost(uint256 postId) public validPost(postId) {
+        posts[postId].shareCount++;
         emit PostShared(postId, msg.sender);
     }
 
-    // Get post IDs for user
     function getUserPosts(address user) public view returns (uint256[] memory) {
         return userPosts[user];
     }
 
-    // Get comments on a post
-    function getComments(uint256 postId) public view returns (Comment[] memory) {
+    function getComments(uint256 postId) public view validPost(postId) returns (Comment[] memory) {
         return postComments[postId];
     }
 
-    // Get likes on a post
-    function getLikes(uint256 postId) public view returns (address[] memory) {
+    function getLikes(uint256 postId) public view validPost(postId) returns (address[] memory) {
         return postLikes[postId];
     }
 }
