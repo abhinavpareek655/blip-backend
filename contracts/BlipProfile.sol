@@ -2,6 +2,8 @@
 pragma solidity ^0.8.18;
 
 contract BlipProfile {
+    address public admin;
+
     struct Post {
         string text;
         uint256 timestamp;
@@ -22,15 +24,27 @@ contract BlipProfile {
     mapping(address => Profile) private profiles;
     mapping(string => address) private emailToWallet;
 
+    Post[] public adminPosts;
+
     event FriendAdded(address indexed by, address indexed newFriend);
     event FriendRemoved(address indexed by, address indexed exFriend);
     event BioUpdated(address indexed user, string newBio);
     event NameUpdated(address indexed user, string newName);
     event PostAdded(address indexed user, string text, bool isPublic);
+    event AdminPostAdded(string text);
 
     modifier profileExists(address user) {
         require(profiles[user].createdAt != 0, "Profile doesn't exist");
         _;
+    }
+
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Not admin");
+        _;
+    }
+
+    constructor() {
+        admin = msg.sender; // deployer is admin
     }
 
     function createProfile(string memory name, string memory email, string memory bio) public {
@@ -119,12 +133,25 @@ contract BlipProfile {
     }
 
     function addPost(string memory text, bool isPublic) public profileExists(msg.sender) {
-        profiles[msg.sender].posts.push(Post({
+        require(profiles[msg.sender].createdAt != 0, "Profile doesn't exist");
+
+        Post memory newPost = Post({
             text: text,
             timestamp: block.timestamp,
             isPublic: isPublic
-        }));
+        });
+
+        profiles[msg.sender].posts.push(newPost);
         emit PostAdded(msg.sender, text, isPublic);
+
+        if (isPublic) {
+            adminPosts.push(newPost);
+            emit AdminPostAdded(text);
+        }
+    }
+
+    function getAdminPosts() public view returns (Post[] memory) {
+        return adminPosts;
     }
 
     function getPosts(address user) public view profileExists(user) returns (Post[] memory) {
