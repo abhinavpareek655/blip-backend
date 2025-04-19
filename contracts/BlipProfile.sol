@@ -6,6 +6,7 @@ contract BlipProfile {
 
     struct Post {
         string text;
+        address owner;
         uint256 timestamp;
         bool isPublic;
     }
@@ -137,6 +138,7 @@ contract BlipProfile {
 
         Post memory newPost = Post({
             text: text,
+            owner: msg.sender,
             timestamp: block.timestamp,
             isPublic: isPublic
         });

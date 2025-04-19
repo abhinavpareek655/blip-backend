@@ -18,24 +18,26 @@ contract BlipAuth {
         require(bytes(email).length > 0, "Email is required");
         require(bytes(password).length >= 8, "Password must be at least 8 characters");
 
+        // Use encodePacked for consistency
         bytes32 emailHash = keccak256(abi.encodePacked(email));
 
         require(users[emailHash].wallet == address(0), "Email already registered");
 
         users[emailHash] = User({
-        wallet: msg.sender,
-        passwordHash: keccak256(abi.encodePacked(password))
-    });
+            wallet: msg.sender,
+            passwordHash: keccak256(abi.encodePacked(password))
+        });
 
         emit UserSignedUp(email, msg.sender);
 
         console.log("[SIGNUP] Email:", email);
         console.log("[SIGNUP] Wallet:", msg.sender);
-        console.logBytes32(emailHash); // ✅ supported
+        console.logBytes32(emailHash);
     }
 
     function login(string memory email, string memory password) public view returns (bool) {
-        bytes32 emailHash = keccak256(abi.encode(email));
+        // Use encodePacked to match the hashing from signup
+        bytes32 emailHash = keccak256(abi.encodePacked(email));
 
         console.log("[LOGIN] Email:", email);
         console.logBytes32(emailHash);
@@ -52,7 +54,8 @@ contract BlipAuth {
     }
 
     function getWallet(string memory email) public view returns (address) {
-        bytes32 emailHash = keccak256(abi.encode(email));
+        // Use encodePacked for consistency with signup
+        bytes32 emailHash = keccak256(abi.encodePacked(email));
         require(users[emailHash].wallet != address(0), "Email not found");
         return users[emailHash].wallet;
     }
@@ -60,4 +63,5 @@ contract BlipAuth {
     function getUserByEmailHash(bytes32 emailHash) public view returns (address) {
         return users[emailHash].wallet;
     }
+
 }

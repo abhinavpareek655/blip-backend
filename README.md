@@ -45,22 +45,6 @@ This runs a local network at `http://127.0.0.1:8545`.
 
 Create: `scripts/deploy.js`
 
-```js
-const hre = require("hardhat");
-
-async function main() {
-  const Auth = await hre.ethers.getContractFactory("BlipAuth");
-  const auth = await Auth.deploy();
-  await auth.waitForDeployment();
-  console.log("BlipAuth deployed to:", await auth.getAddress());
-}
-
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
-```
-
 Deploy it:
 
 ```bash
