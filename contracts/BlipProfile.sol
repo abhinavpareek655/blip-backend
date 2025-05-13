@@ -24,6 +24,8 @@ contract BlipProfile {
 
     mapping(address => Profile) private profiles;
     mapping(string => address) private emailToWallet;
+    mapping(address => address[]) private incomingRequests;
+    mapping(address => mapping(address => bool)) private hasRequest;
 
     Post[] public adminPosts;
 
@@ -33,6 +35,9 @@ contract BlipProfile {
     event NameUpdated(address indexed user, string newName);
     event PostAdded(address indexed user, string text, bool isPublic);
     event AdminPostAdded(string text);
+    event FriendRequestSent(address indexed from, address indexed to);
+    event FriendRequestAccepted(address indexed from, address indexed to);
+    event FriendRequestRejected(address indexed from, address indexed to);
 
     modifier profileExists(address user) {
         require(profiles[user].createdAt != 0, "Profile doesn't exist");
@@ -94,6 +99,59 @@ contract BlipProfile {
         return emailToWallet[email] != address(0);
     }
 
+    function sendFriendRequest(address to) 
+        public 
+        profileExists(msg.sender) 
+        profileExists(to) 
+    {
+        require(msg.sender != to, "Cannot friend yourself");
+        require(!profiles[msg.sender].friends[to], "Already friends");
+        require(!hasRequest[msg.sender][to], "Request already sent");
+
+        incomingRequests[to].push(msg.sender);
+        hasRequest[msg.sender][to] = true;
+        emit FriendRequestSent(msg.sender, to);
+    }
+
+    function listFriendRequests() 
+        public 
+        view 
+        profileExists(msg.sender) 
+        returns (address[] memory) 
+    {
+        return incomingRequests[msg.sender];
+    }
+
+    function _removePending(address from, address to) internal {
+        address[] storage reqs = incomingRequests[to];
+        for (uint i = 0; i < reqs.length; i++) {
+            if (reqs[i] == from) {
+                reqs[i] = reqs[reqs.length - 1];
+                reqs.pop();
+                break;
+            }
+        }
+    }
+
+    function acceptFriendRequest(address from) 
+        public 
+        profileExists(msg.sender) 
+        profileExists(from) 
+    {
+        require(hasRequest[from][msg.sender], "No request from this user");
+        // remove from pending list
+        _removePending(from, msg.sender);
+        hasRequest[from][msg.sender] = false;
+
+        // now add as friends
+        profiles[msg.sender].friends[from] = true;
+        profiles[msg.sender].friendList.push(from);
+        profiles[from].friends[msg.sender] = true;
+        profiles[from].friendList.push(msg.sender);
+
+        emit FriendRequestAccepted(from, msg.sender);
+    }
+
     function addFriend(address newFriend) public profileExists(msg.sender) profileExists(newFriend) {
         require(!profiles[msg.sender].friends[newFriend], "Already friends");
 
@@ -105,6 +163,18 @@ contract BlipProfile {
 
         emit FriendAdded(msg.sender, newFriend);
     }
+
+    function rejectFriendRequest(address from) 
+        public 
+        profileExists(msg.sender) 
+    {
+        require(hasRequest[from][msg.sender], "No request from this user");
+        _removePending(from, msg.sender);
+        hasRequest[from][msg.sender] = false;
+        emit FriendRequestRejected(from, msg.sender);
+    }
+
+   
 
     function removeFriend(address exFriend) public profileExists(msg.sender) profileExists(exFriend) {
         require(profiles[msg.sender].friends[exFriend], "Not friends");

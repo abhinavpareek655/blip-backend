@@ -31,7 +31,7 @@ contract BlipPosts {
     event PostShared(uint256 indexed postId, address indexed user);
 
     modifier validPost(uint256 postId) {
-        require(postId >= 0 && postId <= postIdCounter, "Invalid post ID");
+        require(postId >= 0, "Invalid post ID");
         _;
     }
 
