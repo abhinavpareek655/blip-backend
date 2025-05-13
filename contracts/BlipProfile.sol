@@ -26,6 +26,7 @@ contract BlipProfile {
     mapping(string => address) private emailToWallet;
     mapping(address => address[]) private incomingRequests;
     mapping(address => mapping(address => bool)) private hasRequest;
+    mapping(address => address[]) private sentRequests;
 
     Post[] public adminPosts;
 
@@ -110,6 +111,7 @@ contract BlipProfile {
 
         incomingRequests[to].push(msg.sender);
         hasRequest[msg.sender][to] = true;
+        sentRequests[msg.sender].push(to);
         emit FriendRequestSent(msg.sender, to);
     }
 
@@ -120,6 +122,15 @@ contract BlipProfile {
         returns (address[] memory) 
     {
         return incomingRequests[msg.sender];
+    }
+
+    function listSentRequests(address user)
+        public
+        view
+        profileExists(user)
+        returns (address[] memory)
+    {
+        return sentRequests[user];
     }
 
     function _removePending(address from, address to) internal {
