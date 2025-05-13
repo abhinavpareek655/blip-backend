@@ -31,7 +31,7 @@ contract BlipPosts {
     event PostShared(uint256 indexed postId, address indexed user);
 
     modifier validPost(uint256 postId) {
-        require(postId > 0 && postId <= postIdCounter, "Invalid post ID");
+        require(postId >= 0 && postId <= postIdCounter, "Invalid post ID");
         _;
     }
 
@@ -39,7 +39,7 @@ contract BlipPosts {
     function createPost(string memory text, bool isPublic) public {
         require(bytes(text).length > 0, "Post text required");
 
-        uint256 postId = ++postIdCounter;
+        uint256 postId = postIdCounter++;
 
         posts[postId] = Post({
             id: postId,

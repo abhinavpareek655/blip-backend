@@ -51,15 +51,17 @@ app.post("/send-otp", async (req, res) => {
     console.log(`[SEND OTP] 🔐 OTP generated and saved: ${code}`);
 
     const transporter = nodemailer.createTransport({
-      service: "gmail",
+      host:   process.env.SMTP_HOST,
+      port:   +process.env.SMTP_PORT,
+      secure: process.env.SMTP_PORT === '465', // true for 465, false for 587
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,          // the 16-char App Password
+      },
     });
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.SMTP_USER,
       to: email,
       subject: "OTP for account verification",
       html: `
